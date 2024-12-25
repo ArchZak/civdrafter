@@ -114,18 +114,21 @@ Client.on('messageCreate', (message) => {  //scans every message typed in any ch
     if (messageContents[0] === '?draft') {
         const playerAmount = messageContents[1]; 
         const civAmount = messageContents[2];
-        if (playerAmount < 0 || civAmount < 0) {
-            return message.reply("negative number detected, try again");
-        }
 
         const bannedLeaders = messageContents.slice(3).map(ban => ban.toLowerCase());
 
         const availableLeaders = leaders.filter(leader => //makes sure dupe leaders arent handed out
             !bannedLeaders.includes(leader.toLowerCase())
         );
-
-        if (availableLeaders.length < playerAmount * civAmount) {
+        
+        if (isNaN(civAmount) || isNaN(playerAmount)) {
+            return message.reply("you did not input a number for civ amount or player amount");
+        } else if (playerAmount > 24) {
+            return message.reply("you cant have more than 24 players in a game of civ");
+        } else if (availableLeaders.length < playerAmount * civAmount) {
             return message.reply("not enough leaders available after bans to complete draft");
+        } else if (playerAmount < 0 || civAmount < 0) {
+            return message.reply("negative number detected, try again");
         }
 
         const draftResults = [];

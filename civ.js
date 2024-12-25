@@ -114,6 +114,9 @@ Client.on('messageCreate', (message) => {  //scans every message typed in any ch
     if (messageContents[0] === '?draft') {
         const playerAmount = messageContents[1]; 
         const civAmount = messageContents[2];
+        if (playerAmount < 0 || civAmount < 0) {
+            return message.reply("negative number detected, try again");
+        }
 
         const bannedLeaders = messageContents.slice(3).map(ban => ban.toLowerCase());
 

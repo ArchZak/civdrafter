@@ -139,10 +139,10 @@ Client.on('messageCreate', (message) => {  //scans every message typed in any ch
                 playerDraft.push(availableLeaders[randomNumber]);
                 availableLeaders.splice(randomNumber, 1); 
             }
-            draftResults.push(`Player ${i + 1}: ${playerDraft.join(", ")}`); 
+            draftResults.push(`**Player ${i + 1}:** \`${playerDraft.join(", ")}\``); 
         }
 
-        message.reply(draftResults.join("\n"));
+        message.reply(draftResults.join("\n\n"));
     }
     }
 ); 

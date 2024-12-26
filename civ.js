@@ -79,6 +79,8 @@ require('dotenv').config();
 
 const token = process.env.DISCORD_TOKEN;
 
+const { EmbedBuilder } = require('discord.js');
+
 const Client = new Discord.Client({ //discord.js imports
     intents: [
         Discord.GatewayIntentBits.GuildMessages,
@@ -100,18 +102,29 @@ Client.on('ready', (client) => console.log(client.user.tag + ' is now online'));
 
 Client.on('messageCreate', (message) => {  //scans every message typed in any channel the bot has access to
     if (message.content === '?help') {
-        message.reply(
-            "Use `?draft X Y LeaderName1 LeaderName2 etc` to create a draft. "+ 
-            "X is the amount of players to draft for, and Y is the amount of civs to assign to each player. The leader names after are the bans, you can type any amount of bans." +
-            "\n\nUse `?listleaders` in order to see all the civ leaders that are available,"+
-            " and the names you need to copy and paste into the leader ban.");
+        const embed = new EmbedBuilder()
+            .setTitle("Help")
+            .setDescription(
+                "Use `?draft X Y LeaderName1 LeaderName2 etc` to create a draft. "+ 
+                "X is the amount of players to draft for, and Y is the amount of civs to assign to each player. The leader names after are the bans, you can type any amount of bans." +
+                "\n\nUse `?listleaders` in order to see all the civ leaders that are available,"+
+                " and the names you need to copy and paste into the leader ban.")
+            .setColor("Random");
+
+        return message.reply({embeds: [embed]});
     } else if (message.content === "?listleaders") {
-        message.reply(leaders.map((leader, index) => `${index + 1}. ${leader}`).join("\n"));
-    }
+        const embed = new EmbedBuilder()
+            .setTitle("Leaders List")
+            .setDescription(leaders.map((leader, index) => `${index + 1}. ${leader}`).join("\n"))
+            .setColor("Random");
+
+        return message.reply({ embeds: [embed] });    
+        }
 
     const messageContents = (message.content).split(" ");
 
     if (messageContents[0] === '?draft') {
+        const errors = []
         const playerAmount = messageContents[1]; 
         const civAmount = messageContents[2];
 
@@ -122,13 +135,22 @@ Client.on('messageCreate', (message) => {  //scans every message typed in any ch
         );
         
         if (isNaN(civAmount) || isNaN(playerAmount)) {
-            return message.reply("you did not input a number for civ amount or player amount");
+            errors.push("you did not input a number for civ amount or player amount");
         } else if (playerAmount > 24) {
-            return message.reply("you cant have more than 24 players in a game of civ");
+            errors.push("you cant have more than 24 players in a game of civ");
         } else if (availableLeaders.length < playerAmount * civAmount) {
-            return message.reply("not enough leaders available after bans to complete draft");
-        } else if (playerAmount < 0 || civAmount < 0) {
-            return message.reply("negative number detected, try again");
+            errors.push("not enough leaders available after bans to complete draft");
+        } else if (playerAmount <= 0 || civAmount <= 0) {
+            errors.push("invalid number detected, try again");
+        }
+
+        if (errors.length>0) {
+            const embed = new EmbedBuilder()
+                .setTitle("Error")
+                .setDescription(errors[0])
+                .setColor('Red');
+
+            return message.reply({embeds:[embed]});
         }
 
         const draftResults = [];
@@ -142,9 +164,13 @@ Client.on('messageCreate', (message) => {  //scans every message typed in any ch
             draftResults.push(`**Player ${i + 1}:** \`${playerDraft.join(", ")}\``); 
         }
 
-        message.reply(draftResults.join("\n\n"));
+        const embed = new EmbedBuilder()
+            .setTitle("Civ Draft")
+            .setDescription(draftResults.join("\n\n"))
+            .setColor("Random");
+
+        return message.reply({ embeds: [embed]});
     }
-    }
-); 
+}); 
 
 Client.login(token); 

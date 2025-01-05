@@ -1,4 +1,10 @@
-const leaders = [ //all the civ6 leaders...
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { CivCommand } from './CivCommand.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+export const leaders = [ //all the civ6 leaders...
     "america-bullmoose",
     "america-lincoln",
     "america-roughrider",
@@ -74,103 +80,72 @@ const leaders = [ //all the civ6 leaders...
     "zulu"
 ];
 
-const Discord = require('discord.js'); 
-require('dotenv').config();
-
-const token = process.env.DISCORD_TOKEN;
-
-const { EmbedBuilder } = require('discord.js');
-
-const Client = new Discord.Client({ //discord.js imports
+const client = new Client({
     intents: [
-        Discord.GatewayIntentBits.GuildMessages,
-        Discord.GatewayIntentBits.GuildMembers,
-        Discord.GatewayIntentBits.DirectMessages,
-        Discord.GatewayIntentBits.MessageContent,
-        Discord.GatewayIntentBits.Guilds,
-    ], partials: [
-        Discord.Partials.Message,
-        Discord.Partials.Channel,
-        Discord.Partials.GuildMember,
-        Discord.Partials.User,
-        Discord.Partials.GuildScheduledEvent,
-        Discord.Partials.ThreadMember,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.Guilds,
+    ],
+    partials: [
+        Partials.Message,
+        Partials.Channel,
+        Partials.GuildMember,
+        Partials.User,
+        Partials.GuildScheduledEvent,
+        Partials.ThreadMember,
     ]
-}); 
+});
 
-Client.on('ready', (client) => console.log(client.user.tag + ' is now online'));
+const commands = new Map();
 
-Client.on('messageCreate', (message) => {  //scans every message typed in any channel the bot has access to
-    if (message.content === '?help') {
-        const embed = new EmbedBuilder()
-            .setTitle("Help")
-            .setDescription(
-                "Use `?draft X Y LeaderName1 LeaderName2 etc` to create a draft. "+ 
-                "X is the amount of players to draft for, and Y is the amount of civs to assign to each player. The leader names after are the bans, you can type any amount of bans." +
-                "\n\nUse `?listleaders` in order to see all the civ leaders that are available,"+
-                " and the names you need to copy and paste into the leader ban.")
-            .setColor("Random");
+client.once('ready', () => {
+    console.log(`${client.user.tag} is now online`);
+    
+    const civCommand = new CivCommand(client);
+    commands.set(civCommand.name, civCommand);
+    
+    const commandData = Array.from(commands.values()).map(cmd => cmd.toJSON());
+    client.application.commands.set(commandData)
+        .then(() => console.log('Slash commands registered!'))
+        .catch(console.error);
+});
 
-        return message.reply({embeds: [embed]});
-    } else if (message.content === "?listleaders") {
-        const embed = new EmbedBuilder()
-            .setTitle("Leaders List")
-            .setDescription(leaders.map((leader, index) => `${index + 1}. ${leader}`).join("\n"))
-            .setColor("Random");
+client.on('interactionCreate', async interaction => {
+    if (interaction.isChatInputCommand()) {
+        const command = commands.get(interaction.commandName);
+        if (command) {
+            try {
+                if (interaction.guildId === null) {
+                    await command.execute(interaction);
+                } else {
+                    await command.execute(interaction);
+                }
+            } catch (error) {
+                console.error(error);
+                const errorMessage = {
+                    content: 'There was an error executing this command!',
+                    ephemeral: true
+                };
 
-        return message.reply({ embeds: [embed] });    
-        }
-
-    const messageContents = (message.content).split(" ");
-
-    if (messageContents[0] === '?draft') {
-        const errors = []
-        const playerAmount = messageContents[1]; 
-        const civAmount = messageContents[2];
-
-        const bannedLeaders = messageContents.slice(3).map(ban => ban.toLowerCase());
-
-        const availableLeaders = leaders.filter(leader => //makes sure dupe leaders arent handed out
-            !bannedLeaders.includes(leader.toLowerCase())
-        );
-        
-        if (isNaN(civAmount) || isNaN(playerAmount)) {
-            errors.push("you did not input a number for civ amount or player amount");
-        } else if (playerAmount > 24) {
-            errors.push("you cant have more than 24 players in a game of civ");
-        } else if (availableLeaders.length < playerAmount * civAmount) {
-            errors.push("not enough leaders available after bans to complete draft");
-        } else if (playerAmount <= 0 || civAmount <= 0) {
-            errors.push("invalid number detected, try again");
-        }
-
-        if (errors.length>0) {
-            const embed = new EmbedBuilder()
-                .setTitle("Error")
-                .setDescription(errors[0])
-                .setColor('Red');
-
-            return message.reply({embeds:[embed]});
-        }
-
-        const draftResults = [];
-        for (let i = 0; i < playerAmount; i++) {
-            const playerDraft = []; //assigns civs to each player at random
-            for (let j = 0; j < civAmount; j++) {
-                const randomNumber = Math.floor(Math.random() * availableLeaders.length);
-                playerDraft.push(availableLeaders[randomNumber]);
-                availableLeaders.splice(randomNumber, 1); 
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply(errorMessage);
+                } else {
+                    await interaction.reply(errorMessage);
+                }
             }
-            draftResults.push(`**Player ${i + 1}:** \`${playerDraft.join(", ")}\``); 
         }
-
-        const embed = new EmbedBuilder()
-            .setTitle("Civ Draft")
-            .setDescription(draftResults.join("\n\n"))
-            .setColor("Random");
-
-        return message.reply({ embeds: [embed]});
+    } else if (interaction.isAutocomplete()) {
+        const command = commands.get(interaction.commandName);
+        if (command?.autocomplete) {
+            try {
+                await command.autocomplete(interaction);
+            } catch (error) {
+                console.error(error);
+            }
+        }
     }
-}); 
+});
 
-Client.login(token); 
+client.login(process.env.DISCORD_TOKEN);
